@@ -1,13 +1,15 @@
-package main_test
+$ cat myinterface.go
+package foo
 
-import (
-	"errors"
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . MySpecialInterface
 
-	"testing"
+type MySpecialInterface interface {
+	DoThings(string, uint64) (int, error)
+}
 
-	"github.com/maxbrunsfeld/counterfeiter/v6/fixtures"
-	"github.com/maxbrunsfeld/counterfeiter/v6/fixtures/fixturesfakes"
+$ go generate ./...
 
+Writing `FakeMySpecialInterface` to `foofakes/fake_my_special_interface.go`... Don
 	. "github.com/onsi/gomega"
 	"github.com/sclevine/spec"
 	"github.com/sclevine/spec/report"
