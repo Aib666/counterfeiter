@@ -1,4 +1,18 @@
+$ cat tools/tools.go
+
+// +build tools
+
+package tools
+
+import (
+	_ "github.com/maxbrunsfeld/counterfeiter/v6"
+)
+
+// This file imports packages that are used when running go generate, or used
+// during the development process but not otherwise depended on by built code.
+
 $ cat myinterface.go
+
 package foo
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . MySpecialInterface
@@ -8,93 +22,74 @@ type MySpecialInterface interface {
 }
 
 $ go generate ./...
+Writing `FakeMySpecialInterface` to `foofakes/fake_my_special_interface.go`... Done
 
-Writing `FakeMySpecialInterface` to `foofakes/fake_my_special_interface.go`... Don
-	. "github.com/onsi/gomega"
-	"github.com/sclevine/spec"
-	"github.com/sclevine/spec/report"
-)
+$ cat myinterface.go
 
-func TestFakes(t *testing.T) {
-	spec.Run(t, "Fakes", testFakes, spec.Report(report.Terminal{}))
+	package foo
+
+// You only need **one** of these per package!
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
+// You will add lots of directives like these in the same package...
+//counterfeiter:generate . MySpecialInterface
+type MySpecialInterface interface {
+	DoThings(string, uint64) (int, error)
 }
 
-func testFakes(t *testing.T, when spec.G, it spec.S) {
-	it.Before(func() {
-		RegisterTestingT(t)
-	})
+// Like this...
+//counterfeiter:generate . MyOtherInterface
+type MyOtherInterface interface {
+	DoOtherThings(string, uint64) (int, error)
+}
 
-	var fake *fixturesfakes.FakeSomething
+$ go generate ./...
+Writing `FakeMySpecialInterface` to `foofakes/fake_my_special_interface.go`... Done
+Writing `FakeMyOtherInterface` to `foofakes/fake_my_other_interface.go`... Done
 
-	it.Before(func() {
-		fake = new(fixturesfakes.FakeSomething)
-	})
+$ go generate ./...
+$ go run github.com/maxbrunsfeld/counterfeiter/v6
 
-	it("implements the specified interface", func() {
-		var interfaceVal fixtures.Something = fake
-		Expect(interfaceVal).NotTo(BeNil())
-	})
+USAGE
+	counterfeiter
+		[-generate] [-o <output-path>] [-p] [--fake-name <fake-name>]
+		[<source-path>] <interface> [-]
 
-	it("can have its behavior configured using stub functions", func() {
-		fake.DoThingsStub = func(arg1 string, arg2 uint64) (int, error) {
-			Expect(arg1).To(Equal("stuff"))
-			Expect(arg2).To(Equal(uint64(5)))
-			return 3, errors.New("the-error")
-		}
+$ GO111MODULE=off go get -u github.com/maxbrunsfeld/counterfeiter
+$ counterfeiter
 
-		num, err := fake.DoThings("stuff", 5)
+USAGE
+	counterfeiter
+		[-generate] [-o <output-path>] [-p] [--fake-name <fake-name>]
+		[<source-path>] <interface> [-]
 
-		Expect(num).To(Equal(3))
-		Expect(err).To(Equal(errors.New("the-error")))
-	})
+$ cat path/to/foo/file.go
+package foo
 
-	it("can have its return values configured", func() {
-		fake.DoThingsReturns(3, errors.New("the-error"))
+type MySpecialInterface interface {
+		DoThings(string, uint64) (int, error)
+}
 
-		num, err := fake.DoThings("stuff", 5)
-		Expect(num).To(Equal(3))
-		Expect(err).To(Equal(errors.New("the-error")))
-	})
+$ go run github.com/maxbrunsfeld/counterfeiter/v6 path/to/foo MySpecialInterface
+Wrote `FakeMySpecialInterface` to `path/to/foo/foofakes/fake_my_special_interface.go`
 
-	it("returns zero values when no return value or stub is provided", func() {
-		num, err := fake.DoThings("stuff", 5)
+import "my-repo/path/to/foo/foofakes"
 
-		Expect(num).To(Equal(0))
-		Expect(err).To(BeNil())
-	})
+var fake = &foofakes.FakeMySpecialInterface{}
 
-	it("allows overriding previous stub functions with return values", func() {
-		fake.DoThingsStub = func(arg1 string, arg2 uint64) (int, error) {
-			return 3, errors.New("the-error")
-		}
+fake.DoThings("stuff", 5)
 
-		fake.DoThingsReturns(4, errors.New("other-error"))
+Expect(fake.DoThingsCallCount()).To(Equal(1))
 
-		num, err := fake.DoThings("stuff", 5)
-		Expect(num).To(Equal(4))
-		Expect(err).To(Equal(errors.New("other-error")))
-	})
+str, num := fake.DoThingsArgsForCall(0)
+Expect(str).To(Equal("stuff"))
+Expect(num).To(Equal(uint64(5)))
 
-	it("records the arguments it was called with", func() {
-		Expect(fake.DoThingsCallCount()).To(Equal(0))
+fake.DoThingsReturns(3, errors.New("the-error"))
 
-		fake.DoThings("stuff", 5)
-
-		Expect(fake.DoThingsCallCount()).To(Equal(1))
-		arg1, arg2 := fake.DoThingsArgsForCall(0)
-		Expect(arg1).To(Equal("stuff"))
-		Expect(arg2).To(Equal(uint64(5)))
-	})
-
-	it("records a slice argument as a copy", func() {
-		buffer := []byte{1}
-
-		fake.DoASlice(buffer)
-
-		buffer[0] = 2
-		arg1 := fake.DoASliceArgsForCall(0)
-		Expect(arg1).To(ConsistOf(byte(1)))
-	})
+num, err := fake.DoThings("stuff", 5)
+Expect(num).To(Equal(3))
+Expect(err).To(Equal(errors.New("the-error")))
 
 	it("records a nil slice argument as a nil", func() {
 		var buffer []byte = nil
